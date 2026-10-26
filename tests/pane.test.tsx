@@ -2,7 +2,7 @@ import { describe, expect, mock, test } from 'claude-code/testing'
 import type { On } from 'claude-code'
 
 const SURFACES = ['terminal', 'desktop'] as const
-const PLUGIN = 'superlite-agents'
+const PLUGIN = 'claude-agent-map'
 const PANE = 'superlite-agents'
 
 const props = (bodyColumns = 100) => ({
@@ -120,7 +120,7 @@ describe('superlite records', () => {
 
   test('the open_agent_map tool opens the pane on a project, read-only', async ($, on) => {
     world(on, FILES)
-    const ran = await $.tool.call({ tool: 'mcp__superlite-agents__open_agent_map', tool_use_id: 'tu1', dir: '.' })
+    const ran = await $.tool.call({ tool: 'mcp__claude-agent-map__open_agent_map', tool_use_id: 'tu1', dir: '.' })
     expect(ran).toMatchObject({ text: 'Agent map opened (./.superlite).' })
   })
 

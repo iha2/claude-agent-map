@@ -1,5 +1,5 @@
 {
-  "name": "superlite-agents",
+  "name": "claude-agent-map",
   "version": "0.1.0",
   "description": "Read-only agent map pane: the main session and each subagent with its tier, time, tokens and superlite tasks",
   "author": {

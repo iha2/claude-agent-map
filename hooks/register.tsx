@@ -26,13 +26,13 @@ const PANE = 'superlite-agents'
 const TITLE = 'Agent map'
 const TOOL = 'open_agent_map'
 
-const live = atom({ plugin: 'superlite-agents', key: 'live' } as const, {})
-const usage = atom({ plugin: 'superlite-agents', key: 'usage' } as const, {})
-const files = atom({ plugin: 'superlite-agents', key: 'files' } as const, emptySuperlite())
-const selected = atom({ plugin: 'superlite-agents', key: 'selected' } as const, null)
-const now = atom({ plugin: 'superlite-agents', key: 'now' } as const, 0)
-const mainActive = atom({ plugin: 'superlite-agents', key: 'mainActive' } as const, false)
-const mainModel = atom({ plugin: 'superlite-agents', key: 'mainModel' } as const, '')
+const live = atom({ plugin: 'claude-agent-map', key: 'live' } as const, {})
+const usage = atom({ plugin: 'claude-agent-map', key: 'usage' } as const, {})
+const files = atom({ plugin: 'claude-agent-map', key: 'files' } as const, emptySuperlite())
+const selected = atom({ plugin: 'claude-agent-map', key: 'selected' } as const, null)
+const now = atom({ plugin: 'claude-agent-map', key: 'now' } as const, 0)
+const mainActive = atom({ plugin: 'claude-agent-map', key: 'mainActive' } as const, false)
+const mainModel = atom({ plugin: 'claude-agent-map', key: 'mainModel' } as const, '')
 
 type $ = EngineInterface
 
@@ -210,7 +210,7 @@ export const register: Register = on => {
 
   on('command.run', { command: 'superlite-agents' }, async ($, e) => ({ text: await show($, e.args) }))
 
-  on('tool.call', { tool: 'mcp__superlite-agents__open_agent_map' }, async ($, e) => {
+  on('tool.call', { tool: 'mcp__claude-agent-map__open_agent_map' }, async ($, e) => {
     const dir = (e as { dir?: unknown }).dir
     const text = await show($, typeof dir === 'string' ? dir : '')
 

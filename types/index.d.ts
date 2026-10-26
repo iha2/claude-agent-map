@@ -54,7 +54,7 @@ export type Superlite = {
 
 declare module 'claude-code' {
   interface PluginState {
-    'superlite-agents': {
+    'claude-agent-map': {
       live: Record<string, LiveAgent>
       usage: Record<string, Usage>
       files: Superlite
