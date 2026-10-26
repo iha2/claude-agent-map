@@ -22,7 +22,7 @@ Installing `superlite` from the same marketplace pulls this plugin in automatica
 ## Use
 
 ```
-/superlite-agents [project dir]
+/claude-agent-map [project dir]
 ```
 
 Opens the pane. Give it a project folder (or its `.superlite` folder) to point the map at that project; leave it out to use the working directory. The folder is remembered for next time.
@@ -47,7 +47,7 @@ tests/        model.test.ts, pane.test.tsx
 types/        type declarations for the mod API
 ```
 
-The plugin was called `superlite-agents` until it moved to this repo. The `/superlite-agents` command and the pane id keep that name for now.
+The plugin was called `superlite-agents` until it moved to this repo, and the command was `/superlite-agents`.
 
 This repo was split out of `mods/agent-map` in [iha2/superlite](https://github.com/iha2/superlite), with its history kept.
 

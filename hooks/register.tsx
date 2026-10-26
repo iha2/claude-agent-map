@@ -22,7 +22,7 @@ import type { Card, Status } from './model'
 import { graphSvg, treeOrder } from './graph'
 import type { GraphNode } from './graph'
 
-const PANE = 'superlite-agents'
+const PANE = 'claude-agent-map'
 const TITLE = 'Agent map'
 const TOOL = 'open_agent_map'
 
@@ -168,7 +168,7 @@ async function show($: $, args: string): Promise<string> {
 export const register: Register = on => {
   on('session.start', async ($, e, next) => {
     await $.command.register({
-      name: 'superlite-agents',
+      name: 'claude-agent-map',
       description: 'Show the agent map: the main session and each subagent, read-only',
       argumentHint: '[project dir]',
       immediate: true,
@@ -208,7 +208,7 @@ export const register: Register = on => {
     return next(e)
   })
 
-  on('command.run', { command: 'superlite-agents' }, async ($, e) => ({ text: await show($, e.args) }))
+  on('command.run', { command: 'claude-agent-map' }, async ($, e) => ({ text: await show($, e.args) }))
 
   on('tool.call', { tool: 'mcp__claude-agent-map__open_agent_map' }, async ($, e) => {
     const dir = (e as { dir?: unknown }).dir

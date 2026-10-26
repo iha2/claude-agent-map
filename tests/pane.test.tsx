@@ -3,7 +3,7 @@ import type { On } from 'claude-code'
 
 const SURFACES = ['terminal', 'desktop'] as const
 const PLUGIN = 'claude-agent-map'
-const PANE = 'superlite-agents'
+const PANE = 'claude-agent-map'
 
 const props = (bodyColumns = 100) => ({
   title: 'Agent map',
@@ -82,7 +82,7 @@ describe('superlite records', () => {
   for (const surface of SURFACES) {
     test(`metrics rows fill the card; a press shows its details (${surface})`, async ($, on) => {
       world(on, FILES)
-      const ran = await $.command.run({ command: 'superlite-agents', args: '', origin: { kind: 'composer' }, presentation: RUN })
+      const ran = await $.command.run({ command: 'claude-agent-map', args: '', origin: { kind: 'composer' }, presentation: RUN })
       expect(ran).toEqual({ text: 'Agent map opened (.superlite).' })
 
       const ui = await $.ui.mount({ plugin: PLUGIN, surface, component: 'Pane', requestId: PANE, props: props() })
@@ -112,7 +112,7 @@ describe('superlite records', () => {
 
   test('missing files: no crash, live events only', async ($, on) => {
     world(on, {})
-    const ran = await $.command.run({ command: 'superlite-agents', args: '', origin: { kind: 'composer' }, presentation: RUN })
+    const ran = await $.command.run({ command: 'claude-agent-map', args: '', origin: { kind: 'composer' }, presentation: RUN })
     expect(ran).toEqual({ text: 'Agent map opened (no .superlite records here; live events only).' })
     const ui = await $.ui.mount({ plugin: PLUGIN, surface: 'desktop', component: 'Pane', requestId: PANE, props: props(40) })
     expect(await ui.find({ type: 'Text', text: 'no subagents yet' })).toBeDefined()
@@ -126,7 +126,7 @@ describe('superlite records', () => {
 
   test('a project dir argument reads that project', async ($, on) => {
     world(on, { 'C:/runs/q2/.superlite/metrics.jsonl': FILES['.superlite/metrics.jsonl']! })
-    const ran = await $.command.run({ command: 'superlite-agents', args: 'C:/runs/q2', origin: { kind: 'composer' }, presentation: RUN })
+    const ran = await $.command.run({ command: 'claude-agent-map', args: 'C:/runs/q2', origin: { kind: 'composer' }, presentation: RUN })
     expect(ran).toEqual({ text: 'Agent map opened (C:/runs/q2/.superlite).' })
   })
 })
