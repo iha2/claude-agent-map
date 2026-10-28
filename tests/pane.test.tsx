@@ -44,6 +44,7 @@ function world(on: On, files: Record<string, string>) {
   on('ui.open', () => ({ value: { isPlaced: true as const } }))
   on('classic.SubagentStart', () => ({}))
   on('classic.SubagentStop', () => ({}))
+  on('turn.complete', (_$, e) => ({ text: e.answer }))
 }
 
 async function svgSource(ui: { find: (q: { type?: string }) => Promise<{ props: Record<string, unknown> } | undefined> }) {
@@ -76,6 +77,16 @@ describe('live status', () => {
       if (surface === 'desktop') expect(await svgSource(ui)).not.toContain('#22a35a')
     })
   }
+
+  test('a subagent turn completing greys the card without SubagentStop', async ($, on) => {
+    world(on, {})
+    await $.classic.SubagentStart({ agent_id: 'a2', agent_type: 'superlite:implementer' })
+    const ui = await $.ui.mount({ plugin: PLUGIN, surface: 'desktop', component: 'Pane', requestId: PANE, props: props() })
+    expect((await dotColor(ui)).at(-1)).toBe('success')
+
+    await $.turn.complete({ agentId: 'a2', turnId: 't2', answer: 'done' } as never)
+    expect((await dotColor(ui)).at(-1)).toBe('inactive')
+  })
 })
 
 describe('superlite records', () => {

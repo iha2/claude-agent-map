@@ -258,8 +258,11 @@ export const register: Register = on => {
   on('turn.complete', async ($, e, next) => {
     const done = await next(e)
     if (!e.agentId) await update($, mainActive, () => false).catch(() => undefined)
-    else if (e.isAborted || e.reason === 'aborted' || e.reason === 'error')
-      await markStopped($, e.agentId, { isAborted: true }).catch(() => undefined)
+    else {
+      // Fallback when classic.SubagentStop is skipped by a plugin ahead of us.
+      const failed = e.isAborted || e.reason === 'aborted' || e.reason === 'error'
+      await markStopped($, e.agentId, failed ? { isAborted: true } : {}).catch(() => undefined)
+    }
 
     return done
   })
