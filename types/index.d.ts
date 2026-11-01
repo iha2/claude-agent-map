@@ -50,6 +50,10 @@ export type Superlite = {
   sent: Record<string, string[]>
   /** Tasks the ledger checkpointed (`checkpoint T0 <sha> ...`). */
   done: string[]
+  /** The superlite session this folder belongs to (from `sessions.json`); absent when none matched. */
+  /** Task names from the plan the run files point at (`T3` -> `session scope`); absent without a plan. */
+  taskNames?: Record<string, string>
+  session?: { slug: string; branch: string; accent: string; since?: number }
 }
 
 declare module 'claude-code' {
@@ -62,6 +66,14 @@ declare module 'claude-code' {
       now: number
       mainActive: boolean
       mainModel: string
+      /** Hide the agents that finished; the choice also lives in `$.store`. */
+      hideDone: boolean
+      /** The run key the pane was last opened for by itself. */
+      opened: string
+      /** The run key of the subagent run in progress. */
+      runKey: string
+      /** Per ledger box (`main` or a card id), its first shown line; absent or null = pinned to the end. */
+      ledgerOffsets: Record<string, number | null>
     }
   }
 }

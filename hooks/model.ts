@@ -224,13 +224,23 @@ export function subagentTranscript(mainTranscript: string | undefined, id: strin
  * as one card each, oldest first. Live status is the engine's events where this
  * session saw the agent, else what the files show (`fileActive`).
  */
-export function mergeCards(live: Record<string, LiveAgent>, files: Superlite, usage: Record<string, Usage>): Card[] {
+export function mergeCards(
+  live: Record<string, LiveAgent>,
+  files: Superlite,
+  usage: Record<string, Usage>,
+  opts?: { since?: number },
+): Card[] {
+  const since = opts?.since
+  // file rows older than `since` belong to an earlier run, unless this session saw the agent live
+  const fresh = <T extends { t?: number }>(r: T | undefined, id: string): T | undefined =>
+    r && since !== undefined && r.t !== undefined && r.t < since && live[id] === undefined ? undefined : r
   const ids = new Set([...Object.keys(live), ...Object.keys(files.launches), ...Object.keys(files.stops)])
   const cards: Card[] = []
   for (const id of ids) {
     const l = live[id]
-    const la = files.launches[id]
-    const st = files.stops[id]
+    const la = fresh(files.launches[id], id)
+    const st = fresh(files.stops[id], id)
+    if (!l && !la && !st) continue
     const pool = files.pool[id]
     const u = usage[id]
     const description = l?.description || la?.desc || ''
@@ -316,4 +326,71 @@ export function fmtTokens(n: number | undefined): string {
   if (n < 1000) return `${n} tok`
   if (n < 1_000_000) return `${(n / 1000).toFixed(1)}k tok`
   return `${(n / 1_000_000).toFixed(2)}M tok`
+}
+
+export type SessionRow = { slug: string; branch: string; worktree: string; status: string; createdAt?: number }
+export type Registry = { active?: string; host?: string; sessions: SessionRow[] }
+
+/** The superlite session registry (`sessions.json`); undefined when the text is not a JSON object. */
+export function parseRegistry(text: string): Registry | undefined {
+  let v: unknown
+  try {
+    v = JSON.parse(text)
+  } catch {
+    return undefined
+  }
+  if (!v || typeof v !== 'object' || Array.isArray(v)) return undefined
+  const o = v as Record<string, unknown>
+  const sessions: SessionRow[] = []
+  if (Array.isArray(o.sessions)) {
+    for (const e of o.sessions) {
+      if (!e || typeof e !== 'object') continue
+      const r = e as Record<string, unknown>
+      if (typeof r.slug !== 'string' || !r.slug) continue
+      sessions.push({
+        slug: r.slug,
+        branch: typeof r.branch === 'string' ? r.branch : '',
+        worktree: typeof r.worktree === 'string' ? r.worktree : '',
+        status: typeof r.status === 'string' ? r.status : '',
+        createdAt: typeof r.created_at === 'number' && Number.isFinite(r.created_at) ? r.created_at : undefined,
+      })
+    }
+  }
+  return {
+    active: typeof o.active === 'string' && o.active ? o.active : undefined,
+    host: typeof o.host_worktree === 'string' && o.host_worktree ? o.host_worktree : undefined,
+    sessions,
+  }
+}
+
+const slashes = (p: string): string => p.replace(/\\/g, '/').replace(/\/+$/, '')
+
+/** Candidate `sessions.json` paths for a `.superlite` dir: its own, then each ancestor folder's. */
+export function registryPaths(dir: string): string[] {
+  const parts = slashes(dir).split('/')
+  const out: string[] = []
+  for (let n = parts.length; n >= 1; n--) {
+    const base = parts.slice(0, n).join('/')
+    if (n < parts.length && parts[n - 1] === '.superlite') continue
+    // the first pass is the dir itself; the rest are ancestors holding their own `.superlite`
+    const p = n === parts.length ? `${base}/sessions.json` : `${base}/.superlite/sessions.json`
+    if (!out.includes(p)) out.push(p)
+  }
+  return out
+}
+
+/** The session whose worktree is `root`; the host project shows the active session (a parked row keeps the host worktree). */
+export function pickSession(reg: Registry, root: string): SessionRow | undefined {
+  const r = slashes(root)
+  if (reg.host !== undefined && slashes(reg.host) === r) return reg.sessions.find(s => s.slug === reg.active)
+  return reg.sessions.find(s => s.status !== 'parked' && slashes(s.worktree) === r)
+}
+
+const PALETTE = ['#e06c75', '#e5c07b', '#98c379', '#56b6c2', '#61afef', '#c678dd', '#d19a66', '#be5046']
+
+/** A stable colour per session slug. */
+export function slugColour(slug: string): string {
+  let h = 0
+  for (let i = 0; i < slug.length; i++) h = (h * 31 + slug.charCodeAt(i)) >>> 0
+  return PALETTE[h % PALETTE.length]!
 }

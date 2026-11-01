@@ -12,9 +12,11 @@ export type GraphNode = {
   status: Status
   /** The agent type (`superlite:implementer`, `Explore`, ...): picks the edge style. */
   type?: string
+  /** A running node's elapsed ms when the graph was built; absent for done and aborted. */
+  clockMs?: number
 }
 
-export type GraphMain = { title: string; meta: string; status: Status }
+export type GraphMain = { title: string; meta: string; status: Status; accent?: string }
 
 const NODE_W = 216
 const NODE_H = 58
@@ -62,7 +64,7 @@ function clip(s: string, n: number): string {
   return s.length > n ? `${s.slice(0, Math.max(1, n - 1))}…` : s
 }
 
-type Item = { id: string; title: string; meta: string; tasks: string; status: Status; type?: string; kids: Item[] }
+type Item = { id: string; title: string; meta: string; tasks: string; status: Status; type?: string; clockMs?: number; accent?: string; kids: Item[] }
 type Laid = { item: Item; w: number; h: number; rows: { kids: Laid[]; w: number; h: number }[] }
 
 /** Children by parent; a parent the list does not hold is the main session. */
@@ -107,17 +109,78 @@ function lay(item: Item, maxW: number): Laid {
   return { item, w, h, rows }
 }
 
+const GLYPH_W = 6.6
+const GLYPH_H = 13
+const CLOCK_FONT = 'ui-monospace, Menlo, monospace'
+
+export function clockBand(ms: number): 'short' | 'mid' | 'long' {
+  return ms >= 3600000 ? 'long' : ms >= 600000 ? 'mid' : 'short'
+}
+
+/** Short stable token from the id, so ids that sanitize alike still get distinct clip ids. */
+function slug(id: string): string {
+  let h = 5381
+  for (let i = 0; i < id.length; i++) h = ((h * 33) ^ id.charCodeAt(i)) >>> 0
+  return `${id.replace(/[^A-Za-z0-9_-]/g, '_').slice(0, 24)}-${h.toString(36)}`
+}
+
+/**
+ * An odometer clock drawn in SVG: one clipped digit strip per place, each stepping on its own
+ * period with SMIL, all started `elapsedMs` in the past. The markup holds no per-second value,
+ * so it is identical from one tick to the next. `x` is the left edge, `y` the text baseline.
+ */
+export function liveClock(id: string, elapsedMs: number, x: number, y: number): string {
+  const band = clockBand(elapsedMs)
+  const secs = Math.max(0, Math.floor(elapsedMs / 1000))
+  const key = slug(id)
+  // left to right: [dur, n] for a strip, or a literal colon
+  const layout: ([number, number] | ':')[] =
+    band === 'long' ? [[36000, 10], ':', [3600, 6], [600, 10], ':', [60, 6], [10, 10]]
+    : band === 'mid' ? [[3600, 6], [600, 10], ':', [60, 6], [10, 10]]
+    : [[600, 10], ':', [60, 6], [10, 10]]
+  // the seconds-ones strip steps every second: dur 10s, n 10
+  const out: string[] = [`<g data-clock="${esc(id)}">`]
+  let cx = Math.round(x * 10) / 10
+  layout.forEach((p, i) => {
+    if (p === ':') {
+      out.push(`<text x="${cx}" y="${y}" font-size="11" font-family="${CLOCK_FONT}" fill="${DIM}">:</text>`)
+      cx = Math.round((cx + GLYPH_W) * 10) / 10
+      return
+    }
+    const [dur, n] = p
+    const cid = `clk-${key}-${i}`
+    const values = Array.from({ length: n }, (_, d) => `0 ${-d * GLYPH_H}`).join(';')
+    const times = Array.from({ length: n }, (_, d) => (d / n).toFixed(4).replace(/\.?0+$/, '') || '0').join(';')
+    const digits = Array.from({ length: n }, (_, d) => `<text x="${cx}" y="${y + d * GLYPH_H}" font-size="11" font-family="${CLOCK_FONT}" fill="${DIM}">${d}</text>`).join('')
+    out.push(
+      `<clipPath id="${cid}"><rect x="${cx}" y="${y - 10}" width="${GLYPH_W}" height="${GLYPH_H - 1}"/></clipPath>`,
+      `<g clip-path="url(#${cid})"><g>${digits}<animateTransform attributeName="transform" type="translate" calcMode="discrete" values="${values}" keyTimes="${times}" dur="${dur}s" begin="-${secs}s" repeatCount="indefinite"/></g></g>`,
+    )
+    cx = Math.round((cx + GLYPH_W) * 10) / 10
+  })
+  out.push('</g>')
+  return out.join('')
+}
+
+function clockWidth(ms: number): number {
+  return (clockBand(ms) === 'long' ? 7 : clockBand(ms) === 'mid' ? 5 : 4) * GLYPH_W
+}
+
 function box(x: number, y: number, n: Item, out: string[]): void {
   const color = COLORS[n.status]
   const run = n.status === 'running'
   const chars = Math.floor((NODE_W - 34) / 6.3)
+  const cw = n.clockMs === undefined ? 0 : clockWidth(n.clockMs)
+  const metaChars = chars + 3 - (cw ? Math.ceil((cw + 6) / 6.3) : 0)
+  const accent = n.id === 'main' && n.accent && /^#[0-9a-fA-F]{6}$/.test(n.accent) ? n.accent : undefined
   out.push(
     `<g><title>${esc([n.title, n.meta, n.tasks, n.status, n.id === 'main' ? '' : n.id].filter(Boolean).join('\n'))}</title>`,
-    `<rect x="${x}" y="${y}" width="${NODE_W}" height="${NODE_H}" rx="9" fill="${CARD}" stroke="${color}" stroke-width="${run || n.status === 'aborted' ? 2 : 1}"/>`,
-    n.id === 'main' ? '' : `<rect x="${x + 1.5}" y="${y + 9}" width="3" height="${NODE_H - 18}" rx="1.5" fill="${ROLES[roleOf(n.type)].color}"/>`,
+    `<rect x="${x}" y="${y}" width="${NODE_W}" height="${NODE_H}"${accent ? ` data-accent="${esc(accent)}"` : ''} rx="9" fill="${CARD}" stroke="${color}" stroke-width="${run || n.status === 'aborted' ? 2 : 1}"/>`,
+    n.id === 'main' ? (accent ? `<rect x="${x + 1.5}" y="${y + 9}" width="4" height="${NODE_H - 18}" rx="2" fill="${esc(accent)}"/>` : '') : `<rect x="${x + 1.5}" y="${y + 9}" width="3" height="${NODE_H - 18}" rx="1.5" fill="${ROLES[roleOf(n.type)].color}"/>`,
     `<circle cx="${x + 14}" cy="${y + 17}" r="5" fill="${color}">${run ? '<animate attributeName="opacity" values="1;0.35;1" dur="1.4s" repeatCount="indefinite"/>' : ''}</circle>`,
     `<text x="${x + 26}" y="${y + 21}" font-size="12.5" font-weight="600" fill="${INK}">${esc(clip(n.title, chars))}</text>`,
-    `<text x="${x + 12}" y="${y + 38}" font-size="11" fill="${DIM}">${esc(clip(n.meta, chars + 3))}</text>`,
+    `<text x="${x + 12}" y="${y + 38}" font-size="11" fill="${DIM}">${esc(clip(n.meta, metaChars))}</text>`,
+    cw ? liveClock(n.id, n.clockMs!, x + NODE_W - 12 - cw, y + 38) : '',
     n.tasks ? `<text x="${x + 12}" y="${y + 52}" font-size="11" fill="${DIM}">${esc(clip(n.tasks, chars + 3))}</text>` : '',
     '</g>',
   )

@@ -15,7 +15,7 @@ import {
   totalTokens,
   transcriptUsage,
 } from '../hooks/model'
-import { COLORS, graphSvg, roleOf, ROLES, treeOrder } from '../hooks/graph'
+import { clockBand, COLORS, graphSvg, liveClock, roleOf, ROLES, treeOrder } from '../hooks/graph'
 
 const METRICS = [
   '{"ev":"launch","t":1000,"agent_id":"a1","type":"superlite:implementer","model":"claude-sonnet-5-5","desc":"T3 templates"}',
@@ -224,5 +224,85 @@ describe('graph', () => {
     }
     expect(g.source).toContain(`stroke-dasharray="${ROLES.reviewer.dash}"`)
     expect(g.source).not.toContain('>implementer</text>')
+  })
+})
+
+describe('graph clock', () => {
+  const main = { title: 'Main', meta: '', status: 'running' as const }
+
+  test('clockBand bands', () => {
+    expect(clockBand(65000)).toBe('short')
+    expect(clockBand(599999)).toBe('short')
+    expect(clockBand(600000)).toBe('mid')
+    expect(clockBand(3599999)).toBe('mid')
+    expect(clockBand(3600000)).toBe('long')
+  })
+
+  test('liveClock short', () => {
+    const s = liveClock('a1', 65000, 0, 0)
+    expect(s).toContain('<g data-clock="a1">')
+    for (const t of ['begin="-65s"', 'dur="10s"', 'dur="60s"', 'dur="600s"', 'repeatCount="indefinite"']) expect(s).toContain(t)
+    expect(s).not.toContain('dur="3600s"')
+  })
+
+  test('liveClock long', () => {
+    const s = liveClock('a1', 3725000, 0, 0)
+    expect(s).toContain('begin="-3725s"')
+    expect(s).toContain('dur="36000s"')
+  })
+
+  test('graphSvg draws a clock for a running node', () => {
+    const run = { id: 'a1', title: 'T', meta: 'sonnet', tasks: '', status: 'running' as const, clockMs: 65000 }
+    const g = graphSvg(main, [run])
+    expect(g.source).toContain('data-clock="a1"')
+    expect(g.source).toContain('begin="-65s"')
+    const done = graphSvg(main, [{ id: 'a1', title: 'T', meta: 'sonnet', tasks: '', status: 'done' as const }])
+    expect(done.source).not.toContain('data-clock')
+  })
+
+  test('graphSvg is stable for the same input', () => {
+    const nodes = [{ id: 'a1', title: 'T', meta: 'sonnet', tasks: '', status: 'running' as const, clockMs: 65000 }]
+    expect(graphSvg(main, nodes).source).toBe(graphSvg(main, nodes).source)
+  })
+
+  test('liveClock id with quotes and spaces', () => {
+    const s = liveClock('a "b" c', 1000, 0, 0)
+    expect(s).toContain('data-clock="a &quot;b&quot; c"')
+    const ids = [...s.matchAll(/<clipPath id="([^"]*)"/g)].map(m => m[1]!)
+    expect(ids.length).toBeGreaterThan(0)
+    for (const id of ids) expect(id).toMatch(/^[A-Za-z0-9_-]+$/)
+    expect(new Set(ids).size).toBe(ids.length)
+    for (const m of s.matchAll(/clip-path="url\(#([^)]*)\)"/g)) expect(ids).toContain(m[1]!)
+  })
+
+  test('clock with 0 ms', () => {
+    expect(liveClock('a', 0, 0, 0)).toMatch(/begin="-?0s"/)
+  })
+
+  test('done node no clock', () => {
+    const g = graphSvg(main, [{ id: 'd', title: 'T', meta: '', tasks: '', status: 'done' as const }])
+    expect(g.source).not.toContain('data-clock')
+  })
+})
+
+describe('graph accent', () => {
+  const m = { title: 'agent-map-blink', meta: 'm', status: 'running' as const }
+  test('accent drawn', () => {
+    const s = graphSvg({ ...m, accent: '#8250df' }, [], 420).source
+    expect(s).toContain('data-accent="#8250df"')
+    expect(s).toContain('width="4"')
+    expect(s).toContain('fill="#8250df"')
+  })
+  test('no accent', () => {
+    expect(graphSvg({ ...m, title: 'Main session' }, [], 420).source).not.toContain('data-accent')
+  })
+  test('accent is escaped', () => {
+    const s = graphSvg({ ...m, accent: '"><x' }, [], 420).source
+    expect(s).not.toContain('<x')
+    expect(s).not.toContain('data-accent')
+  })
+  test('same input same source', () => {
+    const a = { ...m, accent: '#8250df' }
+    expect(graphSvg(a, [], 420).source).toBe(graphSvg(a, [], 420).source)
   })
 })

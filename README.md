@@ -4,11 +4,15 @@ A read-only **agent map** pane for Claude Desktop. It sits beside the transcript
 
 Each node shows:
 
-- its **tier** (haiku, sonnet or opus), **time** and **tokens**
-- the superlite **tasks** it worked on (✓ once checkpointed), when a superlite run is going
+- its **tier** (haiku, sonnet or opus), live **time** and **tokens** in the graph (the clocks run on their own; the graph is redrawn each minute, which refreshes the tokens and re-anchors the clocks)
+- the superlite **tasks** it worked on (✓ once checkpointed), named from the run's plan (`T3 · session scope`) when one is found, ids alone otherwise
 - a status colour: **green** while it runs, **red** if it was aborted or blocked, **grey** when done
 
-Click a row for its details and its ledger lines. The pane only reads; it never changes a run.
+The map shows **one superlite session**: its slug, branch and colour head the pane and the main box, and it follows `session use`. With no session registry it says so and shows whatever the folder holds.
+
+The coordinator's **ledger** scrolls in its own box (10 rows, with older and newer buttons; the wheel moves it once the pane is at its end). Click a row for its details and its ledger lines. The pane only reads; it never changes a run.
+
+The pane **opens by itself once per run** (set `autoOpen`: `agents` for any subagent run, `superlite` for superlite runs only, `off` for never). Close it and it stays closed until the next run.
 
 ## Install
 
@@ -25,7 +29,7 @@ Installing `superlite` from the same marketplace pulls this plugin in automatica
 /claude-agent-map [project dir]
 ```
 
-Opens the pane. Give it a project folder (or its `.superlite` folder) to point the map at that project; leave it out to use the working directory. The folder is remembered for next time.
+Opens the pane. Give it a project folder (or its `.superlite` folder) to point the map at that project; leave it out to use the working directory. Each Claude session starts at its own working directory.
 
 Claude can also open the pane itself: the plugin registers a tool for it, so asking "show me the agent map" while a run is going works too.
 
@@ -54,3 +58,5 @@ This repo was split out of `mods/agent-map` in [iha2/superlite](https://github.c
 ## License
 
 MIT
+
+Finished agents are hidden by default (running ones and their parents stay); the **Show finished (n)** / **Hide finished** button in the header toggles them, and the choice is remembered.
